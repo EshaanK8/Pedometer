@@ -1,3 +1,4 @@
+# Write your code here :-)
 import time
 import displayio
 import terminalio
@@ -115,8 +116,7 @@ group.append(bar_group)
 while True:
     #  creating the data for the ProgressBar
     countdown = map_range(step_count, 0, step_goal, 0.0, 1.0)
-    prog_bar.progress=float(countdown)
-    
+
     if cp.shake(shake_threshold=10):
         #if step_goal - step_count > 0:
          #   step_count = 0
@@ -124,10 +124,10 @@ while True:
         step_count = (step_count+1)%6
         #set_label(count_label, str(step_count), 18)
         count_label.text = "{:6.0f}".format(step_count)
-     
+
         step_time = time.monotonic()
         clock = step_time - mono
-        
+
 
         #  logging steps per hour
         if clock > 3600:
@@ -147,24 +147,27 @@ while True:
 
         #  adjusting countdown to step goal
         #prog_bar.progress = float(countdown)
-        
+
     #  displaying countdown to step goal
     if step_goal - step_count > 0:
+        prog_bar.progress=float(countdown)
         steps_remaining = step_goal - step_count
         string = str(steps_remaining)+' Steps Remaining'
         #set_label(goal_label , string,18)
     else:
+        prog_bar.progress=float(countdown)
+        print(step_count)
         #set_label(goal_label,'Steps Goal Met!',18)
         #put button function here, and ADD A SOUND
-        '''
-        while (button is not pressed) {
-        
-        }
-        '''
+        if(last_count != step_count):
+            cp.play_tone(370, 1)
+            cp.stop_tone()
         #set_label(count_label, str(0), 18)
         #step_count = 0
         #time.sleep(5)
         #step_count = 0
+
+    last_count = step_count
 
 while len(group):
     group.pop()
