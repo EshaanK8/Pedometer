@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-# SPDX-License-Identifier: MIT
-
 import time
 import displayio
 import terminalio
@@ -8,19 +5,30 @@ from adafruit_gizmo import tft_gizmo
 from adafruit_display_text.label import Label
 from adafruit_display_shapes.rect import Rect
 from adafruit_bitmap_font import bitmap_font
-import adafruit_ble
-from adafruit_ble.advertising.standard import SolicitServicesAdvertisement
-from adafruit_ble_apple_media import AppleMediaService
-from adafruit_ble_apple_media import UnsupportedCommand
 from adafruit_circuitplayground import cp
 
-
-#------------DISPLAY#------------
+#Set display constants
 BACKGROUND_COLOR = 0x49523b  # Gray
-TEXT_COLOR = 0xFF0000  # Red
+TEXT_COLOR = 0xFFFF00  # Red
 BORDER_COLOR = 0xAAAAAA  # Light Gray
 STATUS_COLOR = BORDER_COLOR
 
+
+countdown = 0 #  variable for the step goal progress bar
+clock = 0 #  variable used to keep track of time for the steps per hour counter
+clock_count = 0 #  holds the number of hours that the step counter has been running
+clock_check = 0 #  holds the result of the clock divided by 3600 seconds (1 hour)
+last_step = 0 #  state used to properly counter steps
+mono = time.monotonic() #  time.monotonic() device
+mode = 1 #  state used to track screen brightness
+steps_log = 0 #  holds total steps to check for steps per hour
+steps_remaining = 0 #  holds the remaining steps needed to reach the step goal
+sph = 0 #  holds steps per hour
+step_goal = 5
+
+
+
+#-------------------- FUNCTIONS FOR DISPLAY --------------------#
 def wrap_in_tilegrid(filename:str):
     # CircuitPython 6 & 7 compatible
     odb = displayio.OnDiskBitmap(open(filename, "rb"))
@@ -28,14 +36,16 @@ def wrap_in_tilegrid(filename:str):
         odb, pixel_shader=getattr(odb, 'pixel_shader', displayio.ColorConverter())
     )
 
+    # # CircuitPython 7+ compatible
+    # odb = displayio.OnDiskBitmap(filename)
+    # return displayio.TileGrid(odb, pixel_shader=odb.pixel_shader)
+
 def make_background(width, height, color):
     color_bitmap = displayio.Bitmap(width, height, 1)
     color_palette = displayio.Palette(1)
     color_palette[0] = color
 
-    return displayio.TileGrid(color_bitmap,
-                              pixel_shader=color_palette,
-                              x=0, y=0)
+    return displayio.TileGrid(color_bitmap, pixel_shader=color_palette, x=0, y=0)
 
 def load_font(fontname, text):
     font = bitmap_font.load_font(fontname)
@@ -44,7 +54,7 @@ def load_font(fontname, text):
 
 def make_label(text, x, y, color, font=terminalio.FONT):
     if isinstance(font, str):
-        font = load_font(font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,?()")
+        font = load_font(font, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
     text_area = Label(font, text=text, color=color)
     text_area.x = x
     text_area.y = y
@@ -66,29 +76,83 @@ group = displayio.Group()
 display.show(group)
 
 
+# Draw the text fields
+title_label = make_label("None", 12, 30, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+goal_label = make_label("None", 12, 80, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+count_label = make_label("None", 12, 120, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+sph_count = make_label("None", 12, 150, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+sph_label = make_label("None", 12, 180, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+#group.pop()
+#group.append(make_background(240, 240, BACKGROUND_COLOR))
+border = Rect(4, 4, 232, 200, outline=BORDER_COLOR, stroke=2)
+group.append(goal_label)
+group.append(count_label)
+group.append(title_label)
+group.append(sph_count)
+group.append(sph_label)
+group.append(border)
+step_count = 0
+set_label(title_label, "Step Count", 18)
+set_label(goal_label, "B", 18)
+set_label(count_label, str(step_count), 18)
+set_label(sph_count, "", 18)
+set_label(sph_label, "Steps Per Hour", 18)
+
 
 while True:
-    '''
-    if cp.shake(shake_threshold=12):
-        print("Shake detected more easily than before!")'''
-    print("here")
+    if cp.shake(shake_threshold=10):
+        #if step_goal - step_count > 0:
+         #   step_count = 0
+        #else:
+        step_count = (step_count+1)%6
+        set_label(count_label, str(step_count), 18)
+     
+        step_time = time.monotonic()
+        clock = step_time - mono
 
-    # Draw the text fields
-    #group.append(wrap_in_tilegrid("/A_black_image.bmp"))
-    title_label = make_label("None", 12, 30, TEXT_COLOR, font="/fonts/Arial-Bold-18.bdf")
+        #  logging steps per hour
+        if clock > 3600:
+            #  gets number of hours to add to total
+            clock_check = clock / 3600
+            #  logs the step count as of that hour
+            steps_log = step_count
+            #  adds the hours to get a new hours total
+            clock_count += round(clock_check)
+            #  divides steps by hours to get steps per hour
+            sph = steps_log / clock_count
+            #  adds the sph to the display
+            set_label(sph_count,'%d' % sph,set_label,18)
+            #  resets clock to count to the next hour again
+            clock = 0
+            mono = time.monotonic()
+
+        #  adjusting countdown to step goal
+        #prog_bar.progress = float(countdown)
+
+    #  displaying countdown to step goal
+    if step_goal - step_count > 0:
+        steps_remaining = step_goal - step_count
+        string = str(steps_remaining)+' Steps Remaining'
+        set_label(goal_label , string,18)
+    else:
+        set_label(goal_label,'Steps Goal Met!',18)
+        #put button function here, and ADD A SOUND
+        '''
+        while (button is not pressed) {
+        
+        }
+        '''
+        #set_label(count_label, str(0), 18)
+        #step_count = 0
+        #time.sleep(5)
+        #step_count = 0
+
+while len(group):
     group.pop()
-    group.append(make_background(240, 240, BACKGROUND_COLOR))
-    border = Rect(4, 4, 232, 200, outline=BORDER_COLOR, stroke=2)
-    group.append(title_label)
-
-
-
 '''
+from adafruit_circuitplayground import cp
 
 while True:
-    # wait for shake
-    while not cpb.shake(shake_threshold=SHAKE_THRESHOLD):
-        pass
-    if cp.shake(shake_threshold=12):
-        display.show(print("Number"))
+    if cp.shake(shake_threshold=20):
+        print("Shake detected more easily than before!")
 '''
