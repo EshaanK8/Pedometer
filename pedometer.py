@@ -2,10 +2,12 @@ import time
 import displayio
 import terminalio
 from adafruit_gizmo import tft_gizmo
-from adafruit_display_text.label import Label
-from adafruit_display_shapes.rect import Rect
+from adafruit_display_text import label
 from adafruit_bitmap_font import bitmap_font
 from adafruit_circuitplayground import cp
+from adafruit_progressbar.progressbar import ProgressBar
+from simpleio import map_range
+
 
 #Set display constants
 BACKGROUND_COLOR = 0x49523b  # Gray
@@ -77,38 +79,55 @@ display.show(group)
 
 
 # Draw the text fields
-title_label = make_label("None", 12, 30, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
-goal_label = make_label("None", 12, 80, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
-count_label = make_label("None", 12, 120, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
-sph_count = make_label("None", 12, 150, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
-sph_label = make_label("None", 12, 180, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+#goal_label = make_label("None", 12, 30, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+goal_label = label.Label(bitmap_font.load_font("/fonts/LibreBodoniv2002-Bold-27.bdf"),text="None",color=0xFFFF00)
+goal_label.x=0
+goal_label.y=40
+#count_label = make_label("None", 12, 60, TEXT_COLOR, font="/fonts/Roboto-Black-48.bdf")
+count_label = label.Label(bitmap_font.load_font("/fonts/Anton-Regular-104.bdf"),text="None",color=0xFFFF00)
+count_label.x=-20
+count_label.y=150
+#title_label = make_label("None", 12, 120, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+#sph_count = make_label("None", 12, 150, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
+#sph_label = make_label("None", 12, 180, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
 #group.pop()
 #group.append(make_background(240, 240, BACKGROUND_COLOR))
-border = Rect(4, 4, 232, 200, outline=BORDER_COLOR, stroke=2)
-group.append(goal_label)
+#border = Rect(4, 4, 232, 200, outline=BORDER_COLOR, stroke=2)
+#group.append(goal_label)
 group.append(count_label)
-group.append(title_label)
-group.append(sph_count)
-group.append(sph_label)
-group.append(border)
+#group.append(title_label)
+#group.append(sph_count)
+#group.append(sph_label)
+#group.append(border)
 step_count = 0
-set_label(title_label, "Step Count", 18)
-set_label(goal_label, "B", 18)
-set_label(count_label, str(step_count), 18)
-set_label(sph_count, "", 18)
-set_label(sph_label, "Steps Per Hour", 18)
+#set_label(goal_label, "B", 18)
+count_label.text = "{:6.0f}".format(0)
+#set_label(title_label, "Steps", 18)
+#set_label(sph_count, "", 18)
+#set_label(sph_label, "Steps Per Hour", 18)
 
+#  creating the ProgressBar object
+bar_group = displayio.Group()
+prog_bar = ProgressBar(1, 1, 239, 25, bar_color=0xFFFF00)
+bar_group.append(prog_bar)
+group.append(bar_group)
 
 while True:
+    #  creating the data for the ProgressBar
+    countdown = map_range(step_count, 0, step_goal, 0.0, 1.0)
+    prog_bar.progress=float(countdown)
+    
     if cp.shake(shake_threshold=10):
         #if step_goal - step_count > 0:
          #   step_count = 0
         #else:
         step_count = (step_count+1)%6
-        set_label(count_label, str(step_count), 18)
+        #set_label(count_label, str(step_count), 18)
+        count_label.text = "{:6.0f}".format(step_count)
      
         step_time = time.monotonic()
         clock = step_time - mono
+        
 
         #  logging steps per hour
         if clock > 3600:
@@ -121,21 +140,21 @@ while True:
             #  divides steps by hours to get steps per hour
             sph = steps_log / clock_count
             #  adds the sph to the display
-            set_label(sph_count,'%d' % sph,set_label,18)
+            #set_label(sph_count,'%d' % sph,set_label,18)
             #  resets clock to count to the next hour again
             clock = 0
             mono = time.monotonic()
 
         #  adjusting countdown to step goal
         #prog_bar.progress = float(countdown)
-
+        
     #  displaying countdown to step goal
     if step_goal - step_count > 0:
         steps_remaining = step_goal - step_count
         string = str(steps_remaining)+' Steps Remaining'
-        set_label(goal_label , string,18)
+        #set_label(goal_label , string,18)
     else:
-        set_label(goal_label,'Steps Goal Met!',18)
+        #set_label(goal_label,'Steps Goal Met!',18)
         #put button function here, and ADD A SOUND
         '''
         while (button is not pressed) {
