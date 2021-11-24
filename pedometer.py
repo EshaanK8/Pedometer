@@ -42,10 +42,10 @@ step_goal = 5
 #-------------------- FUNCTIONS FOR BUTTON --------------------#
 def touch_a():
     return not button_a.value
-    
+
 def touch_b():
     return not button_b.value
-    
+
 #-------------------- FUNCTIONS FOR DISPLAY --------------------#
 def wrap_in_tilegrid(filename:str):
     # CircuitPython 6 & 7 compatible
@@ -96,7 +96,7 @@ display.show(group)
 
 # Draw the text fields
 #goal_label = make_label("None", 12, 30, TEXT_COLOR, font="/fonts/LibreBodoniv2002-Bold-27.bdf")
-goal_label = label.Label(bitmap_font.load_font("/fonts/LibreBodoniv2002-Bold-27.bdf"),text="None",color=0xFFFF00)
+goal_label = label.Label(bitmap_font.load_font("/fonts/LibreBodoniv2002-Bold-27.bdf"),text="",color=0xFFFF00)
 goal_label.x=0
 goal_label.y=40
 #count_label = make_label("None", 12, 60, TEXT_COLOR, font="/fonts/Roboto-Black-48.bdf")
@@ -109,16 +109,19 @@ count_label.y=150
 #group.pop()
 #group.append(make_background(240, 240, BACKGROUND_COLOR))
 #border = Rect(4, 4, 232, 200, outline=BORDER_COLOR, stroke=2)
-#group.append(goal_label)
+group.append(goal_label)
 group.append(count_label)
 #group.append(title_label)
 #group.append(sph_count)
 #group.append(sph_label)
 #group.append(border)
 step_count = 0
+previous_steps = 0
 press_count=0
 press_count_b=0
+number_when_pressed=0
 to_be_reset = False
+showing_prev_steps = False
 #set_label(goal_label, "B", 18)
 count_label.text = "{:6.0f}".format(0)
 #set_label(title_label, "Steps", 18)
@@ -134,12 +137,29 @@ group.append(bar_group)
 while True:
     if(to_be_reset==False):
         #button stuff
-        if touch_a():
-            press_count = press_count +1
+        if touch_b():
+            showing_prev_steps = True
+            while touch_b():
+                cp.play_tone(1400, 0.20) #40 for testing 4000 for actual
+                time.sleep(0.1)
+                while(showing_prev_steps):
+                    goal_label.text = "Old Steps"
+                    count_label.text = "{:6.0f}".format(previous_steps)
+                    if touch_b():
+                        goal_label.text = ""
+                        count_label.text = "{:6.0f}".format(step_count)
+                        showing_prev_steps = False
+        if touch_a() and step_count>0:
+            if((press_count==0) or (number_when_pressed!=step_count)):
+                press_count =1
+                number_when_pressed=step_count
+            else:
+                press_count=press_count +1
             while touch_a():
-                cp.play_tone(4000, 0.20)
+                cp.play_tone(2000, 0.20) #40 for testing 4000 for actual
                 time.sleep(0.1)
                 if press_count==3:
+                    previous_steps = step_count
                     step_count=0
                     press_count=0
                     count_label.text = "{:6.0f}".format(step_count)
@@ -186,12 +206,15 @@ while True:
             string = str(steps_remaining)+' Steps Remaining'
             #set_label(goal_label , string,18)
         else:
+            countdown = map_range(step_count, 0, step_goal, 0.0, 1.0)
             prog_bar.progress=float(countdown)
             print(step_count)
             #set_label(goal_label,'Steps Goal Met!',18)
             #put button function here, and ADD A SOUND
             if(last_count != step_count):
-                cp.play_tone(370, 1)
+                cp.play_tone(1240, 1)
+                cp.play_tone(1240, 1)
+                cp.play_tone(1400, 1)
                 cp.stop_tone()
                 to_be_reset = True
             #set_label(count_label, str(0), 18)
@@ -202,15 +225,19 @@ while True:
         last_count = step_count
     else:
         while(to_be_reset):
-            if touch_b():
+            goal_label.text = "Goal Met"
+            if touch_a():
                 press_count_b = press_count_b +1
-                while touch_b():
-                    cp.play_tone(4000, 0.20)
+                while touch_a():
+                    cp.play_tone(2000, 0.20)
                     time.sleep(0.1)
-                    if press_count==3:
+                    if press_count_b==3:
+                        previous_steps = step_count
                         step_count=0
                         press_count=0
+                        press_count_b=0
                         count_label.text = "{:6.0f}".format(step_count)
+                        goal_label.text = ""
                         to_be_reset = False
                     pass
 
