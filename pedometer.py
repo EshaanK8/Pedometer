@@ -1,5 +1,6 @@
 # Write your code here :-)
 import time
+import board
 import displayio
 import terminalio
 from adafruit_gizmo import tft_gizmo
@@ -8,6 +9,15 @@ from adafruit_bitmap_font import bitmap_font
 from adafruit_circuitplayground import cp
 from adafruit_progressbar.progressbar import ProgressBar
 from simpleio import map_range
+from digitalio import DigitalInOut, Direction, Pull
+
+button_a = DigitalInOut(board.A2)
+button_a.direction = Direction.INPUT
+button_a.pull = Pull.UP
+
+button_b = DigitalInOut(board.A1)
+button_b.direction = Direction.INPUT
+button_b.pull = Pull.UP
 
 
 #Set display constants
@@ -29,8 +39,13 @@ steps_remaining = 0 #  holds the remaining steps needed to reach the step goal
 sph = 0 #  holds steps per hour
 step_goal = 5
 
-
-
+#-------------------- FUNCTIONS FOR BUTTON --------------------#
+def touch_a():
+    return not button_a.value
+    
+def touch_b():
+    return not button_b.value
+    
 #-------------------- FUNCTIONS FOR DISPLAY --------------------#
 def wrap_in_tilegrid(filename:str):
     # CircuitPython 6 & 7 compatible
@@ -101,6 +116,9 @@ group.append(count_label)
 #group.append(sph_label)
 #group.append(border)
 step_count = 0
+press_count=0
+press_count_b=0
+to_be_reset = False
 #set_label(goal_label, "B", 18)
 count_label.text = "{:6.0f}".format(0)
 #set_label(title_label, "Steps", 18)
@@ -114,60 +132,87 @@ bar_group.append(prog_bar)
 group.append(bar_group)
 
 while True:
-    #  creating the data for the ProgressBar
-    countdown = map_range(step_count, 0, step_goal, 0.0, 1.0)
+    if(to_be_reset==False):
+        #button stuff
+        if touch_a():
+            press_count = press_count +1
+            while touch_a():
+                cp.play_tone(4000, 0.20)
+                time.sleep(0.1)
+                if press_count==3:
+                    step_count=0
+                    press_count=0
+                    count_label.text = "{:6.0f}".format(step_count)
+                pass
 
-    if cp.shake(shake_threshold=10):
-        #if step_goal - step_count > 0:
-         #   step_count = 0
-        #else:
-        step_count = (step_count+1)%6
-        #set_label(count_label, str(step_count), 18)
-        count_label.text = "{:6.0f}".format(step_count)
+        #  creating the data for the ProgressBar
+        countdown = map_range(step_count, 0, step_goal, 0.0, 1.0)
 
-        step_time = time.monotonic()
-        clock = step_time - mono
+        if cp.shake(shake_threshold=10):
+            #if step_goal - step_count > 0:
+             #   step_count = 0
+            #else:
+            step_count = (step_count+1)%6
+            #set_label(count_label, str(step_count), 18)
+            count_label.text = "{:6.0f}".format(step_count)
+
+            step_time = time.monotonic()
+            clock = step_time - mono
 
 
-        #  logging steps per hour
-        if clock > 3600:
-            #  gets number of hours to add to total
-            clock_check = clock / 3600
-            #  logs the step count as of that hour
-            steps_log = step_count
-            #  adds the hours to get a new hours total
-            clock_count += round(clock_check)
-            #  divides steps by hours to get steps per hour
-            sph = steps_log / clock_count
-            #  adds the sph to the display
-            #set_label(sph_count,'%d' % sph,set_label,18)
-            #  resets clock to count to the next hour again
-            clock = 0
-            mono = time.monotonic()
+            #  logging steps per hour
+            if clock > 3600:
+                #  gets number of hours to add to total
+                clock_check = clock / 3600
+                #  logs the step count as of that hour
+                steps_log = step_count
+                #  adds the hours to get a new hours total
+                clock_count += round(clock_check)
+                #  divides steps by hours to get steps per hour
+                sph = steps_log / clock_count
+                #  adds the sph to the display
+                #set_label(sph_count,'%d' % sph,set_label,18)
+                #  resets clock to count to the next hour again
+                clock = 0
+                mono = time.monotonic()
 
-        #  adjusting countdown to step goal
-        #prog_bar.progress = float(countdown)
+            #  adjusting countdown to step goal
+            #prog_bar.progress = float(countdown)
 
-    #  displaying countdown to step goal
-    if step_goal - step_count > 0:
-        prog_bar.progress=float(countdown)
-        steps_remaining = step_goal - step_count
-        string = str(steps_remaining)+' Steps Remaining'
-        #set_label(goal_label , string,18)
+        #  displaying countdown to step goal
+        if step_goal - step_count > 0:
+            prog_bar.progress=float(countdown)
+            steps_remaining = step_goal - step_count
+            string = str(steps_remaining)+' Steps Remaining'
+            #set_label(goal_label , string,18)
+        else:
+            prog_bar.progress=float(countdown)
+            print(step_count)
+            #set_label(goal_label,'Steps Goal Met!',18)
+            #put button function here, and ADD A SOUND
+            if(last_count != step_count):
+                cp.play_tone(370, 1)
+                cp.stop_tone()
+                to_be_reset = True
+            #set_label(count_label, str(0), 18)
+            #step_count = 0
+            #time.sleep(5)
+            #step_count = 0
+
+        last_count = step_count
     else:
-        prog_bar.progress=float(countdown)
-        print(step_count)
-        #set_label(goal_label,'Steps Goal Met!',18)
-        #put button function here, and ADD A SOUND
-        if(last_count != step_count):
-            cp.play_tone(370, 1)
-            cp.stop_tone()
-        #set_label(count_label, str(0), 18)
-        #step_count = 0
-        #time.sleep(5)
-        #step_count = 0
-
-    last_count = step_count
+        while(to_be_reset):
+            if touch_b():
+                press_count_b = press_count_b +1
+                while touch_b():
+                    cp.play_tone(4000, 0.20)
+                    time.sleep(0.1)
+                    if press_count==3:
+                        step_count=0
+                        press_count=0
+                        count_label.text = "{:6.0f}".format(step_count)
+                        to_be_reset = False
+                    pass
 
 while len(group):
     group.pop()
